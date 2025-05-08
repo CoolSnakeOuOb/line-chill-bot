@@ -18,7 +18,7 @@ app = Flask(__name__)
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# 活動說明與限制（已去除 **，允許表情符號）
+# 活動說明與限制
 activity_info = """
 你是新北捷運的客服機器人，負責回答 114 年「CHILL放鬆 全家加碼 FUN暑假」補助活動的問題。請使用親切、簡單的語氣回應員工。
 
@@ -54,6 +54,7 @@ def call_gemini_api(user_input):
     try:
         response = requests.post(url, headers=headers, json=data)
         result = response.json()
+        print("🔄 Gemini API 回傳內容：", result)  # ✅ 打印整個回傳 JSON
         return result["candidates"][0]["content"]["parts"][0]["text"]
     except Exception as e:
         print("❌ 發生錯誤：", e)
@@ -121,14 +122,15 @@ def handle_follow(event):
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_input = event.message.text.strip()
+    print(f"🗣️ 使用者輸入：{user_input}")  # ✅ 無論如何都記錄輸入
+
     if user_input.lower() in ["menu", "選單", "我要問問題", "hi", "hello"]:
+        print("📤 傳送 Flex 選單")
         send_flex_menu(event)
     else:
         reply_text = call_gemini_api(user_input)
-        print(f"🗣️ 使用者：{user_input}")
-        print(f"🤖 回覆：{reply_text}")
+        print(f"🤖 Gemini 回覆：{reply_text}")  # ✅ 顯示 Gemini 回應內容
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_text))
-
 # Flask 本機啟動（Render 上會自動執行）
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
