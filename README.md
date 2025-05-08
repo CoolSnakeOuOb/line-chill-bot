@@ -26,7 +26,7 @@
 
 ```bash
 python -m venv venv
-source venv/bin/activate  # Windows 用戶請改用 venv\Scripts\activate
+venv\Scripts\activate  # Windows 用戶請執行這行
 pip install -r requirements.txt
 ```
 
@@ -62,7 +62,9 @@ https://你的-ngrok-id.ngrok-free.app/callback
 
 ---
 
-## ☁️ Render 雲端部署（推薦）
+## ☁️ Render 雲端部署
+⚠️ 注意：Render 的免費方案在超過 15 分鐘未使用時會自動進入休眠狀態，
+首次重新啟動大約需要 30 秒至 1 分鐘才能恢復正常運作。
 
 ### 1. 上傳 GitHub
 
