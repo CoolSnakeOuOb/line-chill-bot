@@ -2,14 +2,14 @@ from flask import Flask, request
 from linebot import LineBotApi, WebhookHandler
 from linebot.models import (
     MessageEvent, TextMessage, TextSendMessage,
-    FlexSendMessage
+    FlexSendMessage, MessageAction, FollowEvent
 )
-from linebot.models import FollowEvent
 import requests
 import os
+import json
 from dotenv import load_dotenv
 
-# 載入 .env
+# ✅ 讀取 .env 中的金鑰
 load_dotenv()
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
@@ -19,37 +19,29 @@ app = Flask(__name__)
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# 活動說明
+# ✅ 讀取 FAQ JSON 資料
+with open("faq_data.json", encoding="utf-8") as f:
+    faq_data = json.load(f)
+
+# ✅ 模糊比對 FAQ 關鍵字
+def get_relevant_faq(user_input):
+    for key in faq_data:
+        if key in user_input:
+            value = faq_data[key]
+            if isinstance(value, dict):
+                return f"{key}：\n" + "\n".join(
+                    [f"{k}：{', '.join(v) if isinstance(v, list) else v}" for k, v in value.items()]
+                )
+            else:
+                return f"{key}：{value}"
+    return None
+
+# ✅ 活動說明
 activity_info = """
-你是新北捷運公司的客服機器人，專門協助同仁了解「CHILL放鬆 全家加碼 FUN 暑假」活動補助的相關規定。請用親切、簡單的語氣回答問題，幫助同仁輕鬆掌握申請流程與補助範圍。
-
-📌 注意事項：
-- 僅回答與本次暑假補助活動有關的問題，若無關請回覆：「很抱歉，我只能回答暑假補助活動相關的問題唷～」
-- 回覆時請盡量以口語化、易懂的方式說明。
-- 所有補助都需在同月份實報實銷，且每人只能申請一次，補助上限為新台幣 3000 元。
-
-📚 活動資訊：
-🔹 活動期間：114 年 6 月 1 日至 11 月 30 日
-🔹 對象資格：限本公司「全職從業人員」（員編需為 M 開頭的同仁）
-🔹 核銷期限：每月 1 日至月底消費、隔月 20 日至 25 日繳交申請表
-
-✅ 可補助項目（限國內場館及活動）：
-1️⃣ 做運動：
-- 國民運動中心票券（年票、月票、日票）
-- 各式運動場地租用費（羽球、籃球等）
-- 健身房會員費、教練費
-- 運動賽事門票（如棒球、籃球賽）
-
-2️⃣ 享文藝：
-- 展覽、歌仔戲、音樂劇、演唱會、電影票
-- 博物館、美術館門票（不含紀念品店）
-
-3️⃣ FUN假趣：
-- 動物園、海洋館、遊樂園門票（園內消費不補助）
-
-4️⃣ 全家 FUN 暑假大禮包：
-- 限於十四張店購買的大禮包，每包 500 元
-- 回饋點數最高 800 點（如購買 3,000 元可得）
+你是新北捷運公司的客服機器人，專門回答「CHILL放鬆 全家加碼 FUN 暑假」補助活動問題。
+請用親切、簡單的語氣回覆同仁。
+只能回應與活動補助相關的問題，無關請說：「很抱歉，我只能回答暑假補助活動相關的問題唷～」
+請根據內部 FAQ 資料回覆內容。
 
 🚫 不可補助項目：
 - 餐飲（如星巴克、夜市等）
@@ -57,43 +49,32 @@ activity_info = """
 - 非法或博弈性活動（如彩券、賭場）
 - 遊戲點數、線上會員費（如 Netflix、Disney+）
 - 商品購買（如運動鞋、圖書）
-
-📝 報帳需檢附：
-- 發票（需有統編：69278085）
-- 門票與活動照片（需可辨識同仁與活動場地）
-- 消費明細
-- 存摺影本（核銷用）
-- 活動申請表（請用公司 MAIL 收取後列印、簽章並繳交）
-
-📮 報帳流程：
-1. 填寫 Google 表單 ➜ https://forms.gle/sxLw18GsMjjYEKEv6
-2. 列印申請表，貼上憑證與簽章
-3. 每月 20～25 日交給人資室張羽呈承辦人
-4. 不符規定者會通知退件修改
-
-📸 照片補充：
-- 若憑證為門票，請附上活動現場照片（需可辨識人與地點）
-- 若無消費明細，也需用照片佐證活動內容
-
+- ❗ 八大行業（如 KTV、酒店、夜店等）即使與藝文性質有關，依補助規定仍屬排除項目，請依行政分類為準。
 """
 
-# Gemini 回應
+
+# ✅ Gemini 回覆邏輯（插入 FAQ 說明）
 def call_gemini_api(user_input):
-    prompt = f"{activity_info}\n\n使用者問題：{user_input}"
+    faq_hint = get_relevant_faq(user_input)
+    prompt = activity_info
+    if faq_hint:
+        prompt += f"\n\n📌 參考資料：\n{faq_hint}"
+    prompt += f"\n\n使用者問題：{user_input}"
+
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
     headers = {"Content-Type": "application/json"}
     data = {"contents": [{"parts": [{"text": prompt}]}]}
+
     try:
         response = requests.post(url, headers=headers, json=data)
         result = response.json()
-        print("🔄 Gemini API 回傳內容：", result, flush=True)
+        print("🔄 Gemini API 回傳內容：", result)
         return result["candidates"][0]["content"]["parts"][0]["text"]
     except Exception as e:
-        print("❌ 發生錯誤：", e, flush=True)
+        print("❌ 發生錯誤：", e)
         return "很抱歉，我暫時無法回應。"
 
 # Flex 選單
-
 def send_flex_menu(event):
     flex_message = FlexSendMessage(
         alt_text='請選擇你想問的問題',
@@ -136,9 +117,9 @@ def send_flex_menu(event):
             }
         }
     )
-    print("📤 傳送 Flex 選單", flush=True)
     line_bot_api.reply_message(event.reply_token, flex_message)
 
+# Webhook 路由
 @app.route("/callback", methods=['POST'])
 def callback():
     body = request.get_data(as_text=True)
@@ -146,20 +127,26 @@ def callback():
     handler.handle(body, signature)
     return 'OK'
 
+# 加好友時傳 Flex 選單
+@handler.add(FollowEvent)
+def handle_follow(event):
+    send_flex_menu(event)
+
+# 處理一般訊息
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_input = event.message.text.strip()
-    print(f"🟢 使用者輸入：{user_input}", flush=True)
+    print(f"🗣️ 使用者輸入：{user_input}")
 
     if user_input.lower() in ["menu", "選單", "我要問問題", "hi", "hello"]:
+        print("📤 傳送 Flex 選單")
         send_flex_menu(event)
     else:
         reply_text = call_gemini_api(user_input)
-        print(f"🤖 Gemini 回覆：{reply_text}", flush=True)
+        print(f"🤖 Gemini 回覆：{reply_text}")
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_text))
 
+# 啟動 Flask
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-
-    
