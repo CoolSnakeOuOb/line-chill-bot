@@ -1,53 +1,51 @@
 from flask import Flask, request
 from linebot import LineBotApi, WebhookHandler
-from linebot.models import (
-    MessageEvent, TextMessage, TextSendMessage,
-    FlexSendMessage, MessageAction, FollowEvent
-)
+from linebot.models import MessageEvent, TextMessage, TextSendMessage, FollowEvent, FlexSendMessage
 import requests
 import os
 import json
 from dotenv import load_dotenv
+from sentence_transformers import SentenceTransformer, util
 
-# ✅ 讀取 .env 中的金鑰
+# ✅ 載入 .env
 load_dotenv()
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
+# ✅ 初始化 Flask 與 LINE API
 app = Flask(__name__)
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# ✅ 讀取 FAQ JSON 資料
+# ✅ 載入 FAQ JSON 並扁平化處理
 with open("faq_data.json", encoding="utf-8") as f:
-    faq_data = json.load(f)
+    raw_data = json.load(f)
 
-# ✅ 模糊比對 FAQ 關鍵字
+flattened_faq_dict = {}
+for section in raw_data:
+    for q, a in raw_data[section].items():
+        flattened_faq_dict[q] = a
+
+# ✅ 初始化句向量模型
+model = SentenceTransformer('distiluse-base-multilingual-cased')
+faq_keys = list(flattened_faq_dict.keys())
+faq_embeddings = model.encode(faq_keys, convert_to_tensor=True)
+
 def get_relevant_faq(user_input):
-    def search_nested(d):
-        for key, value in d.items():
-            if key in user_input:
-                if isinstance(value, dict):
-                    return f"{key}：\n" + "\n".join(
-                        [f"{k}：{', '.join(v) if isinstance(v, list) else v}" for k, v in value.items()]
-                    )
-                else:
-                    return f"{key}：{value}"
-            elif isinstance(value, dict):
-                result = search_nested(value)
-                if result:
-                    return result
-        return None
-    return search_nested(faq_data)
+    input_embedding = model.encode(user_input, convert_to_tensor=True)
+    cos_scores = util.cos_sim(input_embedding, faq_embeddings)[0]
+    top_idx = cos_scores.argmax().item()
+    most_similar_q = faq_keys[top_idx]
+    answer = flattened_faq_dict[most_similar_q]
+    return f"{most_similar_q}：{answer}"
 
 
 # ✅ 活動說明
 activity_info = """
-你是新北捷運公司的客服機器人，專門回答「CHILL放鬆 全家加碼 FUN 暑假」補助活動問題。
-請用親切、簡單的語氣回覆同仁。
+你是新北捷運公司的客服機器人🤖，專門回答「CHILL放鬆 全家加碼 FUN 暑假」補助活動問題💡。
 如果問題與補助活動無關，請先試著理解內容是否**可能**與補助相關（例如地點、活動名稱）。
-如果無法確定，也可以回覆：「這個項目是否能報帳，建議詢問承辦人確認比較保險喔～」
+如果無法確定建議詢問承辦人確認比較保險
 請根據內部 FAQ 資料回覆內容。
 ⚠️ 回覆請不要使用 Markdown 格式，只使用純文字回覆。
 若使用者問題與 FAQ 中的某題語意相近，請主動選用對應 FAQ 內容來回答。
