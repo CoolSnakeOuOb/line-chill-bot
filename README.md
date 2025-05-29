@@ -1,102 +1,100 @@
+# LINE Chill Bot 說明文件
 
-# LINE CHILL 放鬆 FUN暑假客服機器人
-
-本專案是一個串接 LINE Messaging API 與 Google Gemini API 的 LINE 機器人，能回答暑假補助活動相關問題，並提供常見問題選單。
+這是一個使用 Python + Flask 架設的 LINE Bot，用於回答「CHILL放鬆 全家加碼 FUN 暑假」補助活動相關問題。
 
 ---
 
-## 📦 專案結構
+## 📁 專案結構
 
 ```
 .
 ├── chill.py              # 主程式
 ├── .env                  # 環境變數檔案（實際運行需建立）
 ├── .env.example          # 範例環境變數（不含金鑰）
-├── faq_data.json         # FAQ 資料來源（內含活動規則與常見問題）
+├── faq_data.json         # FAQ 問答資料（支援語意相近問題）
 ├── requirements.txt      # 套件需求
 ├── README.md             # 說明文件（本檔）
 
 ```
 
+> 💡 若要本地測試 Webhook，可[自行下載 ngrok](https://ngrok.com/download)，
+
 ---
 
-## 🖥️ 本地端執行
+## 🛠️ 安裝與執行（本地）
 
-### 1. 安裝 Python 環境
-
-請先安裝 Python 3.9+，並在終端機執行以下指令：
+### 1. 建立虛擬環境並安裝套件
 
 ```bash
 python -m venv venv
-venv\Scripts\activate  # Windows 用戶請執行這行
+venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
 ### 2. 建立 `.env` 檔案
 
-在根目錄下建立 `.env` 檔案，填入以下內容：
+請參考 `.env.example` 並填入自己的金鑰：
 
-```ini
-LINE_CHANNEL_ACCESS_TOKEN=你的Line金鑰
-LINE_CHANNEL_SECRET=你的Line密鑰
-GEMINI_API_KEY=你的Gemini API金鑰
+```
+LINE_CHANNEL_ACCESS_TOKEN=你的Line Token
+LINE_CHANNEL_SECRET=你的Line Secret
+GEMINI_API_KEY=你的Gemini API 金鑰
 ```
 
-（可參考 `.env.example`）
-
-### 3. 執行機器人
+### 3. 啟動 Flask
 
 ```bash
 python chill.py
 ```
 
-若需對外測試（連接 LINE），可搭配 [ngrok](https://ngrok.com/)：
+### 4. 開啟 ngrok 對外連線（可選）
 
 ```bash
 ngrok http 5000
 ```
 
-將產出的網址填入 LINE Developer Console 中的 Webhook URL：
-
-```
-https://你的-ngrok-id.ngrok-free.app/callback
-```
+> ✅ 複製顯示的 URL，如 `https://xxxxx.ngrok-free.app`，到 LINE Developer Webhook 設定頁面。
 
 ---
 
-## ☁️ Render 雲端部署
-⚠️ 注意：Render 的免費方案在超過 15 分鐘未使用時會自動進入休眠狀態，
-首次重新啟動大約需要 30 秒至 1 分鐘才能恢復正常運作。
+## 🚀 Render 雲端部署教學
 
-### 1. 上傳 GitHub
+Render 是一個免費雲端平台，可用來部署 Python Flask Web App。
 
-建立一個 GitHub Repository，上傳以下檔案：
+### ✅ 步驟如下：
 
-- chill.py
-- .env.example
-- requirements.txt
-- .gitignore
+1. 📤 **將你的程式碼推到 GitHub 倉庫**（包含 `.env.example`, `requirements.txt`, `chill.py`, `faq_data.json`）
 
-（不要上傳 `.env` 正式金鑰檔）
+2. 🌐 **到 [https://render.com](https://render.com) 註冊帳號，並建立新的 Web Service**
 
-### 2. Render 設定
+3. 設定以下內容：
 
-1. 到 https://dashboard.render.com
-2. 點「New」→ Web Service
-3. 選擇 GitHub 專案
-4. 設定環境變數（Environment）如下：
-   - LINE_CHANNEL_ACCESS_TOKEN
-   - LINE_CHANNEL_SECRET
-   - GEMINI_API_KEY
-5. Python build command：`pip install -r requirements.txt`
-6. Start command：`python chill.py`
-7. 點選「Deploy」部署
+   * **Environment**: Python 3
+   * **Build Command**: `pip install -r requirements.txt`
+   * **Start Command**: `python chill.py`
+   * **Environment Variables**：
 
-### 3. 設定 LINE Webhook
+     * `LINE_CHANNEL_ACCESS_TOKEN`、`LINE_CHANNEL_SECRET`、`GEMINI_API_KEY`
 
-Render 部署完成後，複製它的網址（如 `https://line-chill-bot.onrender.com/callback`）到 LINE Developers 中 Webhook URL 欄位 → 按 `Verify`。
+4. Render 建立完成後會提供一個網址，例如：
+
+   ```
+   https://line-chill-bot.onrender.com
+   ```
+
+5. ✨ **到 LINE Developer Console 將 Webhook URL 改為：**
+
+   ```
+   https://line-chill-bot.onrender.com/callback
+   ```
+
+6. 點擊 Verify，應該會看到 success！代表部署完成。
 
 ---
+
+## 📌 注意事項
+
+* Render 的免費方案可能會休眠，首次請求較慢
 
 ## ✅ 成功後你可以：
 
