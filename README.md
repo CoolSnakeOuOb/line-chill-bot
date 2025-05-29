@@ -12,8 +12,10 @@
 ├── chill.py              # 主程式
 ├── .env                  # 環境變數檔案（實際運行需建立）
 ├── .env.example          # 範例環境變數（不含金鑰）
+├── faq_data.json         # FAQ 資料來源（內含活動規則與常見問題）
 ├── requirements.txt      # 套件需求
 ├── README.md             # 說明文件（本檔）
+
 ```
 
 ---
