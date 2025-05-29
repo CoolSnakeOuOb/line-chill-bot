@@ -25,24 +25,31 @@ with open("faq_data.json", encoding="utf-8") as f:
 
 # ✅ 模糊比對 FAQ 關鍵字
 def get_relevant_faq(user_input):
-    for key in faq_data:
-        if key in user_input:
-            value = faq_data[key]
-            if isinstance(value, dict):
-                return f"{key}：\n" + "\n".join(
-                    [f"{k}：{', '.join(v) if isinstance(v, list) else v}" for k, v in value.items()]
-                )
-            else:
-                return f"{key}：{value}"
-    return None
+    def search_nested(d):
+        for key, value in d.items():
+            if key in user_input:
+                if isinstance(value, dict):
+                    return f"{key}：\n" + "\n".join(
+                        [f"{k}：{', '.join(v) if isinstance(v, list) else v}" for k, v in value.items()]
+                    )
+                else:
+                    return f"{key}：{value}"
+            elif isinstance(value, dict):
+                result = search_nested(value)
+                if result:
+                    return result
+        return None
+    return search_nested(faq_data)
+
 
 # ✅ 活動說明
 activity_info = """
 你是新北捷運公司的客服機器人，專門回答「CHILL放鬆 全家加碼 FUN 暑假」補助活動問題。
 請用親切、簡單的語氣回覆同仁。
-只能回應與活動補助相關的問題，無關請說：「很抱歉，我只能回答暑假補助活動相關的問題唷～」
+如果問題與補助活動無關，請先試著理解內容是否**可能**與補助相關（例如地點、活動名稱）。
+如果無法確定，也可以回覆：「這個項目是否能報帳，建議詢問承辦人確認比較保險喔～」
 請根據內部 FAQ 資料回覆內容。
-⚠️ 回覆請不要使用 Markdown 格式（例如 **粗體**、*斜體* 等），只使用純文字回覆。
+⚠️ 回覆請不要使用 Markdown 格式，只使用純文字回覆。
 
 🚫 不可補助項目：
 - 餐飲（如星巴克、夜市等）
